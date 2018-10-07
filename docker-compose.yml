@@ -1,0 +1,372 @@
+version: '3'
+services:
+
+  eureka:
+    container_name: eureka
+    image: matheustf/tcc-eurekaserver:v3
+    restart: always
+    ports:
+      - 8090:8090
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    deploy:
+      restart_policy:
+        condition: any
+
+  zuul:
+    container_name: zuul
+    image: matheustf/tcc-zuulserver:v6
+    restart: always
+    ports:
+      - 9090:9090
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - eureka
+    links:
+      - eureka
+    environment:
+      - EUREKA_HOST=eureka
+    deploy:
+      restart_policy:
+        condition: any
+
+  mongodb:
+    container_name: mongo-oauth
+    image: alexpunct/mongo:3.4
+    ports:
+      - '27017'
+    networks: ['stack']
+    environment:
+      - MONGODB_ADMIN_USER=admin
+      - MONGODB_ADMIN_PASS=adminpass
+      - MONGODB_APPLICATION_DATABASE=oauthsecurity
+      - MONGODB_APPLICATION_USER=matheus
+      - MONGODB_APPLICATION_PASS=12345
+      - MONGODB_EXPOSED_PORT=27017
+
+
+  oauth1:
+    container_name: oauth1
+    image: matheustf/tcc-oauth:v23
+    restart: always
+    ports:
+      - 8085:8085
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - eureka
+      - zuul
+    links:
+      - mongodb
+      - rabbitmq
+      - eureka
+      - zuul
+    environment:
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=oauthsecurity
+      - MONGO_USERNAME=matheus
+      - MONGO_PASSWORD=12345
+      - SECRET_KEY_BASE=Asjfwol2asf123142Ags1k23hnSA36as6f4qQ324FEsvb
+      - EUREKA_HOST=eureka
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USERNAME=mqadmin
+      - RABBIT_PASSWORD=Admin123XX_
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+    deploy:
+      restart_policy:
+        condition: any
+
+  mysql:
+    container_name: mysql
+    image: mysql:5.7
+    restart: on-failure
+    environment:
+      - MYSQL_DATABASE=vendasdb
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_USER=matheus
+      - MYSQL_PASSWORD=123456
+    ports:
+      - "3306:3306"
+    restart: always
+    volumes:
+      - "/opt/docker-volumes/mysql:/var/lib/mysql"
+    networks: ['stack']
+
+  vendas1:
+    container_name: vendas1
+    image: matheustf/tcc-vendas:v24
+    restart: always
+    ports:
+      - 8080:8080
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - mysql
+      - eureka
+      - zuul
+      - rabbitmq
+    links:
+      - mysql
+      - eureka
+      - zuul
+      - rabbitmq
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_DATABASE=vendasdb
+      - MYSQL_USER=matheus
+      - MYSQL_PASSWORD=123456
+      - MYSQL_ROOT_HOST=mysql
+      - EUREKA_HOST=eureka
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USERNAME=mqadmin
+      - RABBIT_PASSWORD=Admin123XX_
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+    deploy:
+      restart_policy:
+        condition: any
+
+  mongodbentregas:
+    container_name: mongo-entregas
+    image: alexpunct/mongo:3.4
+    ports:
+      - '27017:27017'
+    networks: ['stack']
+    environment:
+      - MONGODB_ADMIN_USER=admin
+      - MONGODB_ADMIN_PASS=adminpass
+      - MONGODB_APPLICATION_DATABASE=entregadb
+      - MONGODB_APPLICATION_USER=matheus
+      - MONGODB_APPLICATION_PASS=a123456
+
+  entrega1:
+    container_name: entrega1
+    image: matheustf/tcc-entrega:v19
+    restart: always
+    ports:
+      - 8083:8083
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - mongodbentregas
+      - rabbitmq
+      - eureka
+      - zuul
+    links:
+      - mongodbentregas
+      - rabbitmq
+      - eureka
+      - zuul
+    environment:
+      - MONGO_HOST=mongodbentregas
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=entregadb
+      - MONGO_USERNAME=matheus
+      - MONGO_PASSWORD=a123456
+      - EUREKA_HOST=eureka
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USERNAME=mqadmin
+      - RABBIT_PASSWORD=Admin123XX_
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+    deploy:
+      restart_policy:
+        condition: any
+
+  mongodbavaliacao:
+    container_name: mongo-avaliacao
+    image: alexpunct/mongo:3.4
+    ports:
+      - '27017'
+    networks: ['stack']
+    environment:
+      - MONGODB_ADMIN_USER=admin
+      - MONGODB_ADMIN_PASS=adminpass
+      - MONGODB_APPLICATION_DATABASE=avaliacaodb
+      - MONGODB_APPLICATION_USER=matheus
+      - MONGODB_APPLICATION_PASS=a123456
+
+  avaliacao1:
+    container_name: avaliacao1
+    image: matheustf/tcc-avaliacao:v6
+    restart: always
+    ports:
+      - 8084:8084
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - mongodbavaliacao
+      - rabbitmq
+      - eureka
+      - zuul
+    links:
+      - mongodbavaliacao
+      - rabbitmq
+      - eureka
+      - zuul
+    environment:
+      - MONGO_HOST=mongodbavaliacao
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=avaliacaodb
+      - MONGO_USERNAME=matheus
+      - MONGO_PASSWORD=a123456
+      - EUREKA_HOST=eureka
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USERNAME=mqadmin
+      - RABBIT_PASSWORD=Admin123XX_
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+    deploy:
+      restart_policy:
+        condition: any
+
+  consumer1:
+    container_name: consumer1
+    image: matheustf/tcc-consumer:v3
+    restart: always
+    ports:
+      - "8002:8002"
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - elasticsearch
+      - kibana
+      - rabbitmq
+      - eureka
+      - zuul
+    links:
+      - elasticsearch
+      - kibana
+      - rabbitmq
+      - eureka
+      - zuul
+    environment:
+      - ELASTICSEARCH_CLUSTER_NODES=elasticsearch
+      - ELASTICSEARCH_CLUSTER_NAME=mynewclustername
+      - EUREKA_HOST=eureka
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USERNAME=mqadmin
+      - RABBIT_PASSWORD=Admin123XX_
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+
+  emailserver:
+    container_name: emailserver
+    image: matheustf/tcc-emailserver:v2
+    restart: always
+    ports:
+      - "8070:8070"
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - rabbitmq
+      - eureka
+      - zuul
+    links:
+      - rabbitmq
+      - eureka
+      - zuul
+    environment:
+      - EUREKA_HOST=eureka
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USERNAME=mqadmin
+      - RABBIT_PASSWORD=Admin123XX_
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.3.2
+    environment:
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - cluster.name=mynewclustername
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks: ['stack']
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.3.2
+    links:
+      - elasticsearch
+    ports:
+      - 5601:5601
+    networks: ['stack']
+    depends_on:
+      - elasticsearch
+  
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    networks: ['stack']
+    volumes:
+     - $PWD/storage/rabbitmq1:/var/lib/rabbitmq
+    environment:
+     - RABBITMQ_ERLANG_COOKIE=This_is_my_secret_phrase
+     - RABBITMQ_DEFAULT_USER=mqadmin
+     - RABBITMQ_DEFAULT_PASS=Admin123XX_
+     - CLUSTERED=true
+
+  scheduler:
+    container_name: scheduler
+    image: matheustf/tcc-scheduler:v5
+    restart: always
+    ports:
+      - 8050:8050
+    networks: ['stack']
+    command: mvn clean spring-boot:run
+    depends_on:
+      - mongodbentregas
+      - rabbitmq
+      - eureka
+      - zuul
+    links:
+      - mongodbentregas
+      - rabbitmq
+      - eureka
+      - zuul
+    environment:
+      - MONGO_HOST=mongodbentregas
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=entregadb
+      - MONGO_USERNAME=matheus
+      - MONGO_PASSWORD=a123456
+      - EUREKA_HOST=eureka
+      - JVM_OPTS=-Xmx256m -Xms256m -XX:MaxPermSize=256m
+
+  angular:
+    container_name: angular
+    image: matheustf/tcc-angular:v13
+    restart: always
+    ports:
+      - 4200:4200
+    networks: ['stack']
+    depends_on:
+      - entrega1
+      - vendas1
+      - oauth1
+      - eureka
+      - zuul
+    links:
+      - entrega1
+      - vendas1
+      - oauth1
+      - eureka
+      - zuul
+
+networks:
+  stack: {}
